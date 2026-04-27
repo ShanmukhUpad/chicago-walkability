@@ -120,9 +120,9 @@ above the 90th percentile.
 
 **Adjusted Categories:**
 
-15.25 - 18.00: Highly Walkable
+15.26 - 18.09: Highly Walkable
 
-18 - 20: Most Walkable
+18.10 - 20: Most Walkable
 
 The spatial scale that this data is in the format of is that of block
 groups. However, since ChiVes uses census tracts, the data is converted
@@ -173,7 +173,9 @@ walkability_clean <- walkability_chicago %>%
     households = HH,
     land_area_ac = Ac_Land,
     geometry = Shape
-  )
+  ) %>%
+  # EPA encodes missing transit data as -99999; remove before aggregation
+  mutate(transit_distance = ifelse(transit_distance < 0, NA, transit_distance))
 
 cat("Block groups before aggregation:", nrow(walkability_clean), "\n")
 ```
@@ -414,12 +416,16 @@ if(!is.na(anova_pvalue) && anova_pvalue < 0.05) {
 
 The data reflects the initial hypothesis that most areas would be in the
 "Above Average Walkability" range. 1,090 out of 2,014 census tracts are
-in this range. However, this may also be due to the fact that population
-plays a huge role in determining a census tract boundary. Since the
-correlation between walkability and population density has been
-confirmed via the correlation matrix and the linear regression, it makes
-sense why over half of the census tracts belong to the "Above Average
-Walkability" category.
+in this range. The hypothesis also predicted "a decent chunk" of census
+tracts in the most walkable range; however, only 20 out of 2,014 (1%)
+fall into the "Most Walkable" category (≥ 18.10). An additional 350
+(17.4%) are "Highly Walkable," so the prediction holds better when
+interpreted as the top two tiers combined. This may also be due to the
+fact that population plays a huge role in determining a census tract
+boundary. Since the correlation between walkability and population
+density has been confirmed via the correlation matrix and the linear
+regression, it makes sense why over half of the census tracts belong to
+the "Above Average Walkability" category.
 
 **Walkability Map for the City of Chicago versus Walkability Map for the
 Greater Chicago Area:\
@@ -464,12 +470,13 @@ been used for this map, as it uses natural breaks in the data. For a
 street network, it minimizes and class variances to show groupings more
 easily than quantile would.
 
-**Linear Regression Visualization:**
+**Transit Distance Scatter Plot:**
 
-As explained in the exploratory methods section, the linear regression
-shows the relationship between walkability and population density for
-each census tract. Most tracts are below a population density of 50,000
-and have a walkability score from 5 - 15.
+This scatter plot shows the relationship between walkability and
+distance to the nearest transit stop for each census tract. It is the
+strongest single predictor of walkability in this dataset and shows a
+negative trend: census tracts that are farther from transit tend to have
+lower walkability scores.
 
 **Economic Opportunity Visualization:**
 
@@ -756,10 +763,11 @@ pairs(pairs_data,
 # **Discussion**
 
 This analysis reveals that walkability in the Chicago metropolitan area
-has a strong correlation with population density, while it is still not
-the case that an area simply having a high population density is a
-direct cause for a high walkability score, as indicated by comparing the
-walkability score map and the population density map. The Moran I's test
+has a moderate positive correlation with population density (r = 0.375,
+R² = 0.141), while it is still not the case that an area simply having a
+high population density is a direct cause for a high walkability score,
+as indicated by comparing the walkability score map and the population
+density map. The Moran I's test
 confirms that walkability is not just randomly distributed but follows
 patterns on a neighborhood scale. This can be seen in the walkability
 map, as walkability scores lower over time as one leaves the city, with
@@ -769,8 +777,11 @@ Across the United States, an emerging experimental trend is the
 "15-minute city", where all the amenities that come with being in a town
 or city can be accessed within the span of a 15 minute walk. Even in
 some low-density suburbs, there is demand for a reduction in car-centric
-infrastructure. The three maps in the additional visualizations sections
-all had a positive correlation with the main walkability score map. When
+infrastructure. Three of the five additional maps (population density, street
+intersection density, and economic opportunity) had a statistically
+significant positive correlation with the main walkability score map.
+Workers per household showed no significant correlation (r = −0.03, p =
+0.195), and transit distance is addressed separately below. When
 there is a high population density, there is a tendency to build
 amenities closer together, which leads to a high street intersection
 density. When many amenities are closer together, that often leads to
