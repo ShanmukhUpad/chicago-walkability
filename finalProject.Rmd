@@ -351,11 +351,11 @@ kable(summary_stats, caption = "Summary Statistics for Chicago Census Tracts")
 ```
 
 ```{r correlation}
-# Correlation matrix
+# Correlation matrix - restricted to predictors with at least modest |r| with walkability
 cor_data <- final_data %>%
   st_drop_geometry() %>%
-  select(walk_score, pop_density_sqmi, intersection_density, 
-         employment_entropy, transit_distance_km, workers_per_hh) %>%
+  select(walk_score, intersection_density,
+         employment_entropy, transit_distance_km) %>%
   na.omit()
 
 cor_matrix <- cor(cor_data, use = "complete.obs")
@@ -420,12 +420,14 @@ in this range. The hypothesis also predicted "a decent chunk" of census
 tracts in the most walkable range; however, only 20 out of 2,014 (1%)
 fall into the "Most Walkable" category (≥ 18.10). An additional 350
 (17.4%) are "Highly Walkable," so the prediction holds better when
-interpreted as the top two tiers combined. This may also be due to the
-fact that population plays a huge role in determining a census tract
-boundary. Since the correlation between walkability and population
-density has been confirmed via the correlation matrix and the linear
-regression, it makes sense why over half of the census tracts belong to
-the "Above Average Walkability" category.
+interpreted as the top two tiers combined. The hypothesis that
+population density would be a primary driver of walkability is *not*
+supported by the bivariate data: Pearson r between walk_score and
+pop_density_sqmi is only 0.114 (R² = 0.013) over the metro, which is a
+weak association. Population density was therefore dropped from the
+chart panels in favor of variables that show at least a modest
+correlation with walkability (intersection density, economic
+opportunity, transit distance).
 
 **Walkability Map for the City of Chicago versus Walkability Map for the
 Greater Chicago Area:\
@@ -449,16 +451,6 @@ categorization, which does not even count for the "Least Walkable"
 category, as not a single census tract within the city itself is
 categorized as such.
 
-**Population Density Visualization:**
-
-This map only exists to be able to see the correlations between
-walkability and population density in a map form. Obviously, many of the
-census tracts near The Loop have the most population density, which
-correlate to the most walkable census tracts. A quantile classification
-style has been used for this map because it spreads the data evenly
-across a similar number of census tracts. If jenks was used, there would
-be far more census tracts filled gray, making the map visually uneven.
-
 **Street Intersection Density:**
 
 This map helps in identifying pedestrian-centric or car-centric areas,
@@ -470,33 +462,37 @@ been used for this map, as it uses natural breaks in the data. For a
 street network, it minimizes and class variances to show groupings more
 easily than quantile would.
 
-**Transit Distance Scatter Plot:**
+**Economic Opportunity Scatter Plot:**
 
 This scatter plot shows the relationship between walkability and
-distance to the nearest transit stop for each census tract. It is the
-strongest single predictor of walkability in this dataset and shows a
-negative trend: census tracts that are farther from transit tend to have
-lower walkability scores.
+economic opportunity (the inverse of the ChiVes hardship index) for
+each Chicago city census tract that has hardship data. Economic
+opportunity is the strongest *bivariate* predictor of walkability in
+this dataset (r ≈ 0.37, R² ≈ 0.14). The relationship is positive but
+modest: tracts with higher opportunity tend to have higher walkability
+scores, but a large amount of tract-level variation remains
+unexplained.
 
 **Economic Opportunity Visualization:**
 
-This map has been created using the economic hardship variable is taken
-from the existing ChiVes dataset. The opportunity variable is an inverse
-of hardship. The purpose of this visualization's inclusion in this
-analysis is to reveal correlations between walkability and a positive
-variable such as economic opportunity. Since there is no overall quality
-of life variable, economic opportunity is generally the best indicator
-of such a measure. However, there are still many other ways to draw
-correlations between walkability and quality of life. The census tracts
-with the highest economic opportunity generally align with census tracts
-that fall in the "high walkability" or "most walkability" categories. A
-jenks classification style has been used for this map, as for the same
-reasons as street intersection density's.
+This map has been created using the economic hardship variable taken
+from the existing ChiVes dataset. The opportunity variable is the
+inverse of hardship. The purpose of this visualization's inclusion in
+this analysis is to reveal correlations between walkability and a
+positive variable such as economic opportunity. Census tracts with the
+highest economic opportunity tend, on average, to fall into the higher
+walkability categories, but the bivariate correlation (r ≈ 0.37) is
+only modest, so individual tracts deviate from the pattern. A jenks
+classification style has been used for this map, for the same reasons
+as the street intersection density map.
 
 **Scatterplot Matrix:**
 
-This visualization shows pair relationships between walkability and
-several variables. There are many plots that cluster around each other.
+This visualization shows pairwise relationships between walkability and
+the variables retained after pruning weak correlations. Variables with
+|r| < 0.25 against walkability (population density, workers per
+household) have been excluded so that every panel reflects at least a
+modest association.
 
 ```{r results-summary}
 # Summary table by walkability category
@@ -601,7 +597,7 @@ tm0 <- tm_shape(chicago_city) +
 tmap_arrange(tm0, ncol = 1)
 ```
 
-```{r additional-visualizations, fig.width=12, fig.height=14}
+```{r additional-visualizations, fig.width=12, fig.height=6}
 # Chicago city boundary
 chicago_boundary <- places(state = "IL", cb = TRUE) %>%
   filter(NAME == "Chicago") %>%
@@ -610,64 +606,42 @@ chicago_boundary <- places(state = "IL", cb = TRUE) %>%
 chicago_city <- final_data %>%
   st_filter(chicago_boundary, .predicate = st_intersects)
 
-# Visualization 1: Population Density Map
-tm1 <- tm_shape(chicago_city) +
-  tm_fill("pop_density_sqmi", palette = "Blues", style = "quantile", n = 5, 
-          title = "Pop/sq mi") +
-  tm_borders(alpha = 0.2, lwd = 0.3) +
-  tm_layout(main.title = "Population Density", 
-            legend.position = c("left", "bottom"),
-            main.title.size = 1.1,
-            frame = TRUE)
+# Maps restricted to variables with at least modest correlation with walkability.
+# Population density (r=0.114) and workers per household (r=-0.079) were dropped
+# because their bivariate correlation with walkability is too weak to interpret
+# spatial co-variation visually.
 
-# Visualization 2: Street Intersection Density
+# Visualization 1: Street Intersection Density
 tm2 <- tm_shape(chicago_city) +
-  tm_fill("intersection_density", 
-          palette = "Oranges", 
+  tm_fill("intersection_density",
+          palette = "Oranges",
           style = "jenks",
           n = 5,
           title = "Intersections/km²") +
   tm_borders(alpha = 0.2, lwd = 0.3) +
-  tm_layout(main.title = "Street Intersection Density", 
+  tm_layout(main.title = "Street Intersection Density",
             legend.position = c("left", "bottom"),
             main.title.size = 1.1,
             frame = TRUE)
 
-# Visualization 3: Economic Opportunity (Inverse of Hardship)
-
-# Filter to only tracts with hardship data and invert so higher = better
+# Visualization 2: Economic Opportunity (Inverse of Hardship)
 chicago_city_quality <- chicago_city %>%
   filter(!is.na(hrdshpIndx)) %>%
   mutate(opportunity = 100 - hrdshpIndx)
 
 tm3 <- tm_shape(chicago_city_quality) +
-  tm_fill("opportunity", 
-          palette = "Purples", 
+  tm_fill("opportunity",
+          palette = "Purples",
           style = "jenks",
           n = 5,
           title = "Opportunity Index") +
   tm_borders(alpha = 0.2, lwd = 0.3) +
-  tm_layout(main.title = "Economic Opportunity (Lower Hardship)", 
+  tm_layout(main.title = "Economic Opportunity (Lower Hardship)",
             legend.position = c("left", "bottom"),
             main.title.size = 1.1,
             frame = TRUE)
 
-
-
-# Visualization 4: Workers per Household
-tm4 <- tm_shape(chicago_city) +
-  tm_fill("workers_per_hh",
-          palette = "YlOrRd",
-          style = "jenks",
-          n = 5,
-          title = "Workers/HH") +
-  tm_borders(alpha = 0.2, lwd = 0.3) +
-  tm_layout(main.title = "Workers per Household",
-            legend.position = c("left", "bottom"),
-            main.title.size = 1.1,
-            frame = TRUE)
-
-# Visualization 5: Transit Distance
+# Visualization 3: Transit Distance
 tm5 <- tm_shape(chicago_city) +
   tm_fill("transit_distance_km",
           palette = "-BuPu",
@@ -680,15 +654,15 @@ tm5 <- tm_shape(chicago_city) +
             main.title.size = 1.1,
             frame = TRUE)
 
-tmap_arrange(tm1, tm2, tm3, tm4, tm5, ncol = 3)
+tmap_arrange(tm2, tm3, tm5, ncol = 3)
 ```
 
 ```{r walkability-correlations}
 # Bivariate correlations: walkability vs each mapped variable
+# Restricted to variables with at least modest |r| (>= 0.25)
 city_stats <- final_data %>%
   st_drop_geometry() %>%
-  select(walk_score, pop_density_sqmi, intersection_density,
-         workers_per_hh, transit_distance_km) %>%
+  select(walk_score, intersection_density, transit_distance_km) %>%
   na.omit()
 
 city_quality_stats <- chicago_city_quality %>%
@@ -696,21 +670,17 @@ city_quality_stats <- chicago_city_quality %>%
   select(walk_score, opportunity) %>%
   na.omit()
 
-ct_pop <- cor.test(city_stats$walk_score, city_stats$pop_density_sqmi)
 ct_int <- cor.test(city_stats$walk_score, city_stats$intersection_density)
 ct_opp <- cor.test(city_quality_stats$walk_score, city_quality_stats$opportunity)
-ct_wkr <- cor.test(city_stats$walk_score, city_stats$workers_per_hh)
 ct_trn <- cor.test(city_stats$walk_score, city_stats$transit_distance_km)
 
 tibble(
-  Variable  = c("Population Density", "Street Intersection Density",
-                "Economic Opportunity", "Workers per Household",
+  Variable  = c("Street Intersection Density",
+                "Economic Opportunity",
                 "Transit Distance (km)"),
-  r         = round(c(ct_pop$estimate, ct_int$estimate, ct_opp$estimate,
-                      ct_wkr$estimate, ct_trn$estimate), 3),
+  r         = round(c(ct_int$estimate, ct_opp$estimate, ct_trn$estimate), 3),
   `R²`      = round(r^2, 3),
-  `p-value` = c(ct_pop$p.value, ct_int$p.value, ct_opp$p.value,
-                ct_wkr$p.value, ct_trn$p.value),
+  `p-value` = c(ct_int$p.value, ct_opp$p.value, ct_trn$p.value),
   Sig       = dplyr::case_when(
     `p-value` < 0.001 ~ "***",
     `p-value` < 0.01  ~ "**",
@@ -720,35 +690,38 @@ tibble(
 ) %>%
   mutate(`p-value` = ifelse(`p-value` < 0.001, "< 0.001",
                             as.character(round(`p-value`, 3)))) %>%
-  knitr::kable(caption = "Bivariate Pearson correlations with walkability score (two-tailed)")
+  knitr::kable(caption = "Bivariate Pearson correlations with walkability score (two-tailed). Variables with |r| < 0.25 (population density, workers per household) excluded.")
 ```
 
 ```{r regression-visualization, fig.width=10, fig.height=6, message=FALSE}
-scatter_data <- final_data %>% st_drop_geometry() %>%
-  select(walk_score, transit_distance_km) %>% na.omit()
+# Scatter for the strongest bivariate predictor (Economic Opportunity, r ~ 0.37)
+scatter_data <- chicago_city_quality %>% st_drop_geometry() %>%
+  select(walk_score, opportunity) %>% na.omit()
 
-r2_trn <- round(cor(scatter_data$walk_score, scatter_data$transit_distance_km)^2, 3)
+r2_opp <- round(cor(scatter_data$walk_score, scatter_data$opportunity)^2, 3)
+r_opp  <- round(cor(scatter_data$walk_score, scatter_data$opportunity), 3)
 
-ggplot(scatter_data, aes(x = transit_distance_km, y = walk_score)) +
-  geom_point(alpha = 0.35, color = "#e6550d") +
-  geom_smooth(method = "lm", se = TRUE, color = "#a63603") +
+ggplot(scatter_data, aes(x = opportunity, y = walk_score)) +
+  geom_point(alpha = 0.35, color = "#6a51a3") +
+  geom_smooth(method = "lm", se = TRUE, color = "#3f007d") +
   scale_y_continuous(limits = c(0, 20)) +
   labs(
-    title = "Distance to Nearest Transit Stop vs Walkability",
-    subtitle = paste0("R² = ", r2_trn, " — strongest single predictor in the dataset"),
-    x = "Distance to Nearest Transit Stop (km)",
+    title = "Economic Opportunity vs Walkability (City of Chicago)",
+    subtitle = paste0("r = ", r_opp, ", R² = ", r2_opp,
+                      " — strongest bivariate predictor among modest-correlated variables"),
+    x = "Economic Opportunity Index (100 - Hardship)",
     y = "Walkability Score",
-    caption = "Each point = one census tract (Greater Chicago metro area, n ≈ 2,009)"
+    caption = "Each point = one Chicago city census tract with hardship data"
   ) +
   theme(plot.title = element_text(size = 14, face = "bold"),
         plot.subtitle = element_text(size = 11, color = "#555"))
 ```
 
 ```{r scatterplot-matrix, fig.width=8, fig.height=6}
-# Scatterplot matrix
+# Scatterplot matrix - restricted to predictors with at least modest |r| with walkability
 pairs_data <- final_data %>%
   st_drop_geometry() %>%
-  select(walk_score, pop_density_sqmi, transit_distance_km, 
+  select(walk_score, transit_distance_km,
          intersection_density, employment_entropy) %>%
   na.omit()
 
@@ -763,36 +736,36 @@ pairs(pairs_data,
 # **Discussion**
 
 This analysis reveals that walkability in the Chicago metropolitan area
-has a moderate positive correlation with population density (r = 0.375,
-R² = 0.141), while it is still not the case that an area simply having a
-high population density is a direct cause for a high walkability score,
-as indicated by comparing the walkability score map and the population
-density map. The Moran I's test
-confirms that walkability is not just randomly distributed but follows
-patterns on a neighborhood scale. This can be seen in the walkability
-map, as walkability scores lower over time as one leaves the city, with
-only a few exceptions.
+has only a *weak* bivariate correlation with population density
+(r = 0.114, R² = 0.013), so the initial hypothesis that high population
+density is a direct driver of higher walkability is **not** supported by
+the data, even though the multivariate regression still finds a
+significant negative coefficient for pop_density_sqmi after controlling
+for transit distance, intersection density, and employment entropy.
+The Moran's I test confirms that walkability is not randomly
+distributed but follows patterns on a neighborhood scale. This can be
+seen in the walkability map, as walkability scores generally lower as
+one leaves the city, with several exceptions.
 
 Across the United States, an emerging experimental trend is the
 "15-minute city", where all the amenities that come with being in a town
-or city can be accessed within the span of a 15 minute walk. Even in
+or city can be accessed within the span of a 15-minute walk. Even in
 some low-density suburbs, there is demand for a reduction in car-centric
-infrastructure. Three of the five additional maps (population density, street
-intersection density, and economic opportunity) had a statistically
-significant positive correlation with the main walkability score map.
-Workers per household showed no significant correlation (r = −0.03, p =
-0.195), and transit distance is addressed separately below. When
-there is a high population density, there is a tendency to build
-amenities closer together, which leads to a high street intersection
-density. When many amenities are closer together, that often leads to
-mixed-use buildings, which make it easier for job opportunities to rise
-compared to that of separating regions entirely by commercial vs
-residential. However, it is important to realize that there are census
-tracts which are exceptions to this general correlation, as seen in the
-regression model, implying that walkability is not an effect of the
-three additional variables. In other words, an area can still be
-relatively low-density and still have a high walkability score, which is
-what the aim of the "15-minute city" is.
+infrastructure. Among the variables examined here, only three show at
+least a modest bivariate correlation with the walkability score:
+intersection density (r = 0.355), economic opportunity (r = 0.369), and
+transit distance (r = −0.276). Population density (r = 0.114) and
+workers per household (r = −0.079) were dropped from the chart panels
+because their associations are weak, even where the p-values are
+statistically significant given the large sample size. Where amenities
+are closer together, intersection density rises and mixed-use
+buildings become more common, which is consistent with the modest
+positive correlation observed between intersection density and
+walkability. There are still many census tracts that deviate from this
+general pattern — the multivariate regression explains R² ≈ 0.43 of
+walkability variance, leaving most variation unaccounted for, so an
+area can still be relatively low-density and have a high walkability
+score, which is what the "15-minute city" aims for.
 
 All of these findings justify the inclusion of this dataset into ChiVes
 as it provides this information within the context of all of the other
