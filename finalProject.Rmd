@@ -223,8 +223,8 @@ tract_data <- walkability_clean %>%
     # NatWalkInd is a linear combination of D2A_EPHHM, D2B_E8MIXA, D3B, and
     # D4A at the block-group level. To preserve that linear identity at the
     # tract level, every input is aggregated population-weighted with
-    # per-variable NA handling, so that a block group missing one input —
-    # for example, the EPA sentinel for transit distance — does not get
+    # per-variable NA handling, so that a block group missing one input,
+    # for example the EPA sentinel for transit distance, does not get
     # dropped from the aggregation of the other inputs. The earlier
     # behavior, where any sentinel forced the entire block group out of
     # every aggregation, was what was suppressing the bivariate r values.
@@ -380,7 +380,7 @@ kable(summary_stats, caption = "Summary Statistics for Chicago Census Tracts")
 ```{r correlation}
 # Correlation matrix on the City of Chicago analysis frame.
 # Predictors with negligible bivariate correlation with walkability at city
-# extent (|r| < 0.20) are excluded — pop_density_sqmi (r = -0.05) is dropped.
+# extent (|r| < 0.20) are excluded; pop_density_sqmi (r = -0.05) is dropped.
 cor_data <- city_data %>%
   st_drop_geometry() %>%
   select(walk_score, intersection_density, employment_entropy,
@@ -417,7 +417,7 @@ if(moran_test$p.value < 0.05) {
 ```
 
 ```{r lisa, fig.width=10, fig.height=8}
-# Local Indicators of Spatial Association — only run if the global Moran's I
+# Local Indicators of Spatial Association. Only run if the global Moran's I
 # detected significant clustering, since LISA quadrants are uninterpretable
 # without underlying spatial autocorrelation.
 if (moran_test$p.value < 0.05) {
@@ -507,8 +507,8 @@ census tracts in the most walkable range; however, only 20 out of 2,014
 350 (17.4%) are "Highly Walkable," so the prediction holds better when
 interpreted as the top two tiers combined.
 
-The spatial half of the hypothesis — that walkability is highest in the
-CBD/Loop and falls off in outer neighborhoods — is supported by the
+The spatial half of the hypothesis, that walkability is highest in the
+CBD/Loop and falls off in outer neighborhoods, is supported by the
 maps and by the Moran's I test, which shows significant positive
 spatial autocorrelation. The urban-form half of the hypothesis is also
 supported once the EPA inputs are aggregated to tract level the same
@@ -521,17 +521,17 @@ moderate (r ≈ 0.42), and transit distance (D4A) is moderate negative
 which is why side-by-side choropleth maps look so visually similar:
 central neighborhoods light up across all four inputs simultaneously,
 and the Pearson r values now match that visual impression. The earlier
-weak r values were an aggregation artifact — block groups missing one
+weak r values were an aggregation artifact: block groups missing one
 input were being dropped from every aggregation, distorting the tract
 values for the inputs they did have.
 
 The one piece of the hypothesis the data does *not* support is
 population density acting as the driver: city-extent r is essentially
 zero. Density is not an EPA input, and within Chicago the densest
-tracts (Lakeview, Edgewater) are not the most walkable — the Loop is,
+tracts (Lakeview, Edgewater) are not the most walkable; the Loop is,
 despite a comparatively low residential density. The mechanism the
 data points to is therefore mixed-use development, dense
-intersections, and transit proximity — not raw residential density.
+intersections, and transit proximity, not raw residential density.
 
 **Walkability Map for the City of Chicago versus Walkability Map for the
 Greater Chicago Area:\
@@ -828,7 +828,7 @@ ggplot(scatter_data, aes(x = employment_entropy, y = walk_score)) +
   labs(
     title = "Employment + Household Entropy vs Walkability (City of Chicago)",
     subtitle = paste0("r = ", r_emp, ", R² = ", r2_emp,
-                      " — D2A_EPHHM is one of the four EPA inputs to the walkability index"),
+                      ". D2A_EPHHM is one of the four EPA inputs to the walkability index"),
     x = "Employment + Household Entropy (D2A_EPHHM)",
     y = "Walkability Score",
     caption = "Each point = one Chicago city census tract"
@@ -863,15 +863,15 @@ walkability is not randomly distributed but follows clear
 neighborhood-scale spatial patterns, and the maps show walkability is
 highest in and around the Loop, exactly as predicted. Second, once
 the EPA inputs are aggregated to tract level the same way the
-walkability score is — population-weighted with per-variable NA
+walkability score is, population-weighted with per-variable NA
 handling so that block groups missing one input are not dropped from
-every aggregation — the bivariate correlations within Chicago are
+every aggregation, the bivariate correlations within Chicago are
 strong: 8-tier employment mix (D2B_E8MIXA) reaches r ≈ 0.68,
 employment + household entropy (D2A_EPHHM) reaches r ≈ 0.60,
 intersection density (D3B) reaches r ≈ 0.42, and transit distance
 (D4A) reaches r ≈ −0.30. These are the underlying components of the
 EPA walkability formula and they correlate with the score by
-construction — which is exactly what makes the side-by-side
+construction, which is exactly what makes the side-by-side
 choropleth maps look so visually similar. Third, the multivariate
 regression on Chicago city tracts explains R² ≈ 0.84 of walkability
 variance, which is what we should expect because the predictors are
@@ -886,7 +886,7 @@ residential tracts (Lakeview, Edgewater, parts of Lincoln Park) are
 not the most walkable tracts. The Loop has the highest walkability
 but a comparatively low residential density because it is dominated
 by jobs and retail. The variables that do drive walkability are
-mixed-use development, dense street networks, and transit proximity —
+mixed-use development, dense street networks, and transit proximity,
 all of which the Loop has in abundance.
 
 Across the United States, an emerging experimental trend is the
