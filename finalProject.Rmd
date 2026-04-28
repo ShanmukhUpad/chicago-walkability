@@ -228,15 +228,19 @@ tract_data <- walkability_clean %>%
     # dropped from the aggregation of the other inputs. The earlier
     # behavior, where any sentinel forced the entire block group out of
     # every aggregation, was what was suppressing the bivariate r values.
+    # Order matters: every pw_mean call has to consume the original
+    # block-group-level total_pop vector. If total_pop is summarised first,
+    # subsequent pw_mean calls receive a scalar weight, which collapses ok-
+    # indexing in pw_mean to NA and turns most tract values into NA.
     walk_score           = pw_mean(walk_score,           total_pop),
-    total_pop            = sum(total_pop),
-    total_workers        = sum(total_workers, na.rm = TRUE),
-    households           = sum(households,    na.rm = TRUE),
-    land_area_ac         = sum(land_area_ac),
     intersection_density = pw_mean(intersection_density, total_pop),
     employment_entropy   = pw_mean(employment_entropy,   total_pop),
     employment_mix       = pw_mean(employment_mix,       total_pop),
     transit_distance     = pw_mean(transit_distance,     total_pop),
+    total_workers        = sum(total_workers, na.rm = TRUE),
+    households           = sum(households,    na.rm = TRUE),
+    land_area_ac         = sum(land_area_ac),
+    total_pop            = sum(total_pop),
     .groups = 'drop'
   ) %>%
   mutate(
@@ -416,62 +420,6 @@ if(moran_test$p.value < 0.05) {
 }
 ```
 
-```{r lisa, fig.width=10, fig.height=8}
-# Local Indicators of Spatial Association. Only run if the global Moran's I
-# detected significant clustering, since LISA quadrants are uninterpretable
-# without underlying spatial autocorrelation.
-if (moran_test$p.value < 0.05) {
-  local_m <- localmoran(final_data_complete$walk_score, weights)
-  lag_walk <- lag.listw(weights, final_data_complete$walk_score)
-
-  walk_z <- as.numeric(scale(final_data_complete$walk_score))
-  lag_z  <- as.numeric(scale(lag_walk))
-  p_lisa <- local_m[, 5]
-
-  quadrant <- rep("Not Significant", length(walk_z))
-  sig <- !is.na(p_lisa) & p_lisa < 0.05
-  quadrant[sig & walk_z >  0 & lag_z >  0] <- "High-High"
-  quadrant[sig & walk_z <  0 & lag_z <  0] <- "Low-Low"
-  quadrant[sig & walk_z >  0 & lag_z <  0] <- "High-Low"
-  quadrant[sig & walk_z <  0 & lag_z >  0] <- "Low-High"
-
-  final_data_complete <- final_data_complete %>%
-    mutate(lisa_cluster = factor(
-      quadrant,
-      levels = c("High-High", "Low-Low", "High-Low", "Low-High", "Not Significant")
-    ))
-
-  cat("LISA cluster counts (p < 0.05):\n")
-  print(table(final_data_complete$lisa_cluster))
-
-  print(
-    tm_shape(final_data_complete) +
-      tm_fill(
-        "lisa_cluster",
-        palette = c(
-          "High-High"       = "#b2182b",
-          "Low-Low"         = "#2166ac",
-          "High-Low"        = "#f4a582",
-          "Low-High"        = "#92c5de",
-          "Not Significant" = "#f0f0f0"
-        ),
-        title = "LISA cluster (p < 0.05)"
-      ) +
-      tm_borders(alpha = 0.2, lwd = 0.3) +
-      tm_layout(
-        main.title = "Local Moran's I Clusters of Walkability (Greater Chicago)",
-        main.title.size = 1.1,
-        legend.outside = TRUE,
-        legend.outside.position = "right",
-        frame = FALSE
-      )
-  )
-} else {
-  cat("Skipping LISA: global Moran's I was not significant, so local clusters",
-      "would not be interpretable.\n")
-}
-```
-
 ```{r statistical-tests}
 # Linear regression on the City of Chicago analysis frame
 model <- lm(walk_score ~ pop_density_sqmi + transit_distance_km +
@@ -513,11 +461,11 @@ maps and by the Moran's I test, which shows significant positive
 spatial autocorrelation. The urban-form half of the hypothesis is also
 supported once the EPA inputs are aggregated to tract level the same
 way the walkability score is (population-weighted). Within the City of
-Chicago, the 8-tier employment mix (D2B_E8MIXA) correlates strongly
-with walkability (r ≈ 0.68), employment + household entropy
-(D2A_EPHHM) is also strong (r ≈ 0.60), intersection density (D3B) is
-moderate (r ≈ 0.42), and transit distance (D4A) is moderate negative
-(r ≈ −0.30). These are the underlying components of the EPA formula,
+Chicago, employment + household entropy (D2A_EPHHM) correlates
+strongly with walkability (r ≈ 0.69), the 8-tier employment mix
+(D2B_E8MIXA) is comparably strong (r ≈ 0.68), intersection density
+(D3B) is also strong (r ≈ 0.53), and transit distance (D4A) is weak
+negative (r ≈ −0.25). These are the underlying components of the EPA formula,
 which is why side-by-side choropleth maps look so visually similar:
 central neighborhoods light up across all four inputs simultaneously,
 and the Pearson r values now match that visual impression. The earlier
@@ -571,8 +519,8 @@ easily than quantile would.
 This scatter plot shows the relationship between walkability and
 D2A_EPHHM (employment + household entropy), one of the four EPA
 inputs to the walkability index. Within the City of Chicago this is
-one of the strongest bivariate predictors of walkability (r ≈ 0.60,
-R² ≈ 0.36): tracts with greater mixed-use intensity score
+the strongest bivariate predictor of walkability (r ≈ 0.69,
+R² ≈ 0.48): tracts with greater mixed-use intensity score
 substantially higher on walkability. The strong, near-linear positive
 trend is exactly what we should expect because D2A_EPHHM enters the
 EPA's NatWalkInd formula directly.
@@ -594,18 +542,33 @@ map, for the same reasons as the street intersection density map.
 
 This map shows the population-weighted distance from each tract to its
 nearest transit stop. Within the city the bivariate correlation with
-walkability is r ≈ −0.30 (moderate, negative): tracts farther from
+walkability is r ≈ −0.25 (weak, negative): tracts farther from
 transit tend to score lower. Transit distance is one of the four
-direct inputs to the EPA walkability formula, so the negative
-relationship is by construction.
+direct inputs to the EPA walkability formula, but its city-level
+range is compressed because most Chicago tracts sit close to a
+transit stop, which suppresses the bivariate r relative to the other
+EPA inputs.
+
+**LISA Cluster Maps (Local Moran's I):**
+
+Two LISA maps are included: one for the Greater Chicago metropolitan
+area and one for the City of Chicago alone, with the city-only
+neighbor weights recomputed inside the city boundary so that spatial
+lag does not bleed across the city limit. Each map shows the
+significant (p < 0.05) local clusters: High-High tracts (high
+walkability surrounded by high-walkability neighbors), Low-Low
+tracts, and the High-Low and Low-High spatial outliers. Both maps
+are gated on a significant global Moran's I; if the global test were
+not significant, the local quadrants would not be interpretable and
+the map is suppressed.
 
 **Scatterplot Matrix:**
 
 This visualization shows pairwise relationships between walkability and
 the urban-form variables retained for the City of Chicago analysis.
 Population density is excluded because its city-extent correlation
-with walkability is negligible (r = −0.05); the remaining panels
-reflect weak-to-moderate associations.
+with walkability is negligible (r ≈ −0.05); the remaining panels
+reflect weak-to-strong associations.
 
 ```{r results-summary}
 # Summary table by walkability category
@@ -723,7 +686,7 @@ chicago_city <- final_data %>%
 # with walkability inside the City of Chicago. Population density (r ≈ -0.05)
 # and workers per household (r ≈ -0.01) are excluded as negligible.
 
-# Visualization 1: Street Intersection Density (city r ≈ 0.42, moderate)
+# Visualization 1: Street Intersection Density (city r ≈ 0.53, strong)
 tm2 <- tm_shape(chicago_city) +
   tm_fill("intersection_density",
           palette = "Oranges",
@@ -753,7 +716,7 @@ tm3 <- tm_shape(chicago_city_quality) +
             main.title.size = 1.1,
             frame = TRUE)
 
-# Visualization 3: Transit Distance (city r ≈ -0.30, moderate negative)
+# Visualization 3: Transit Distance (city r ≈ -0.25, weak negative)
 tm5 <- tm_shape(chicago_city) +
   tm_fill("transit_distance_km",
           palette = "-BuPu",
@@ -767,6 +730,126 @@ tm5 <- tm_shape(chicago_city) +
             frame = TRUE)
 
 tmap_arrange(tm2, tm3, tm5, ncol = 3)
+```
+
+```{r lisa-metro, fig.width=10, fig.height=8}
+# Local Indicators of Spatial Association across the Greater Chicago metro.
+# Only run if the global Moran's I detected significant clustering, since
+# LISA quadrants are uninterpretable without underlying spatial autocorrelation.
+if (moran_test$p.value < 0.05) {
+  local_m <- localmoran(final_data_complete$walk_score, weights)
+  lag_walk <- lag.listw(weights, final_data_complete$walk_score)
+
+  walk_z <- as.numeric(scale(final_data_complete$walk_score))
+  lag_z  <- as.numeric(scale(lag_walk))
+  p_lisa <- local_m[, 5]
+
+  quadrant <- rep("Not Significant", length(walk_z))
+  sig <- !is.na(p_lisa) & p_lisa < 0.05
+  quadrant[sig & walk_z >  0 & lag_z >  0] <- "High-High"
+  quadrant[sig & walk_z <  0 & lag_z <  0] <- "Low-Low"
+  quadrant[sig & walk_z >  0 & lag_z <  0] <- "High-Low"
+  quadrant[sig & walk_z <  0 & lag_z >  0] <- "Low-High"
+
+  final_data_complete <- final_data_complete %>%
+    mutate(lisa_cluster = factor(
+      quadrant,
+      levels = c("High-High", "Low-Low", "High-Low", "Low-High", "Not Significant")
+    ))
+
+  cat("LISA cluster counts (Greater Chicago, p < 0.05):\n")
+  print(table(final_data_complete$lisa_cluster))
+
+  print(
+    tm_shape(final_data_complete) +
+      tm_fill(
+        "lisa_cluster",
+        palette = c(
+          "High-High"       = "#b2182b",
+          "Low-Low"         = "#2166ac",
+          "High-Low"        = "#f4a582",
+          "Low-High"        = "#92c5de",
+          "Not Significant" = "#f0f0f0"
+        ),
+        title = "LISA cluster (p < 0.05)"
+      ) +
+      tm_borders(alpha = 0.2, lwd = 0.3) +
+      tm_layout(
+        main.title = "Local Moran's I Clusters of Walkability (Greater Chicago)",
+        main.title.size = 1.1,
+        legend.outside = TRUE,
+        legend.outside.position = "right",
+        frame = FALSE
+      )
+  )
+} else {
+  cat("Skipping LISA: global Moran's I was not significant, so local clusters",
+      "would not be interpretable.\n")
+}
+```
+
+```{r lisa-city, fig.width=10, fig.height=8}
+# City-only LISA. Recompute neighbors and weights inside the City of Chicago
+# so the spatial lag does not bleed across the city boundary, then run a
+# city-only Moran's I as a gate before the local cluster map.
+city_lisa_data <- city_data %>% filter(!is.na(walk_score))
+
+city_coords    <- st_coordinates(st_centroid(city_lisa_data))
+city_neighbors <- knn2nb(knearneigh(city_coords, k = 8))
+city_weights   <- nb2listw(city_neighbors, style = "W")
+
+city_moran <- moran.test(city_lisa_data$walk_score, city_weights)
+cat("Moran's I (City of Chicago):\n"); print(city_moran)
+
+if (city_moran$p.value < 0.05) {
+  local_m_city <- localmoran(city_lisa_data$walk_score, city_weights)
+  lag_walk_city <- lag.listw(city_weights, city_lisa_data$walk_score)
+
+  walk_z_c <- as.numeric(scale(city_lisa_data$walk_score))
+  lag_z_c  <- as.numeric(scale(lag_walk_city))
+  p_lisa_c <- local_m_city[, 5]
+
+  quadrant_c <- rep("Not Significant", length(walk_z_c))
+  sig_c <- !is.na(p_lisa_c) & p_lisa_c < 0.05
+  quadrant_c[sig_c & walk_z_c >  0 & lag_z_c >  0] <- "High-High"
+  quadrant_c[sig_c & walk_z_c <  0 & lag_z_c <  0] <- "Low-Low"
+  quadrant_c[sig_c & walk_z_c >  0 & lag_z_c <  0] <- "High-Low"
+  quadrant_c[sig_c & walk_z_c <  0 & lag_z_c >  0] <- "Low-High"
+
+  city_lisa_data <- city_lisa_data %>%
+    mutate(lisa_cluster = factor(
+      quadrant_c,
+      levels = c("High-High", "Low-Low", "High-Low", "Low-High", "Not Significant")
+    ))
+
+  cat("LISA cluster counts (City of Chicago, p < 0.05):\n")
+  print(table(city_lisa_data$lisa_cluster))
+
+  print(
+    tm_shape(city_lisa_data) +
+      tm_fill(
+        "lisa_cluster",
+        palette = c(
+          "High-High"       = "#b2182b",
+          "Low-Low"         = "#2166ac",
+          "High-Low"        = "#f4a582",
+          "Low-High"        = "#92c5de",
+          "Not Significant" = "#f0f0f0"
+        ),
+        title = "LISA cluster (p < 0.05)"
+      ) +
+      tm_borders(alpha = 0.2, lwd = 0.3) +
+      tm_layout(
+        main.title = "Local Moran's I Clusters of Walkability (City of Chicago)",
+        main.title.size = 1.1,
+        legend.outside = TRUE,
+        legend.outside.position = "right",
+        frame = TRUE
+      )
+  )
+} else {
+  cat("Skipping city LISA: city-only Moran's I was not significant.\n")
+}
 ```
 
 ```{r walkability-correlations}
@@ -866,14 +949,14 @@ the EPA inputs are aggregated to tract level the same way the
 walkability score is, population-weighted with per-variable NA
 handling so that block groups missing one input are not dropped from
 every aggregation, the bivariate correlations within Chicago are
-strong: 8-tier employment mix (D2B_E8MIXA) reaches r ≈ 0.68,
-employment + household entropy (D2A_EPHHM) reaches r ≈ 0.60,
-intersection density (D3B) reaches r ≈ 0.42, and transit distance
-(D4A) reaches r ≈ −0.30. These are the underlying components of the
+strong: employment + household entropy (D2A_EPHHM) reaches r ≈ 0.69,
+the 8-tier employment mix (D2B_E8MIXA) reaches r ≈ 0.68, intersection
+density (D3B) reaches r ≈ 0.53, and transit distance (D4A) reaches
+r ≈ −0.25. These are the underlying components of the
 EPA walkability formula and they correlate with the score by
 construction, which is exactly what makes the side-by-side
 choropleth maps look so visually similar. Third, the multivariate
-regression on Chicago city tracts explains R² ≈ 0.84 of walkability
+regression on Chicago city tracts explains R² ≈ 0.85 of walkability
 variance, which is what we should expect because the predictors are
 the formula inputs.
 
