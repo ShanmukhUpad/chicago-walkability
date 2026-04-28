@@ -593,11 +593,11 @@ tm_shape(final_data) +
   tm_fill(
     "walk_category",
     palette = c(
-      "Least Walkable" = "#ca0020",
-      "Below Average Walkable" = "#f4a582",
+      "Least Walkable" = "#E81FFF",
+      "Below Average Walkable" = "#EABDF0",
       "Above Average Walkable" = "#f7f7f7",
-      "Highly Walkable" = "#92c5de",
-      "Most Walkable" = "#0571b0",
+      "Highly Walkable" = "#3C7D58",
+      "Most Walkable" = "#0CF55B",
       "No Data" = "#bdbdbd"
     ),
     title = "Walkability Category"
@@ -628,11 +628,11 @@ tm_shape(chicago_city) +
   tm_fill(
     "walk_category",
     palette = c(
-      "Least Walkable" = "#ca0020",
-      "Below Average Walkable" = "#f4a582",
+      "Least Walkable" = "#E81FFF",
+      "Below Average Walkable" = "#EABDF0",
       "Above Average Walkable" = "#f7f7f7",
-      "Highly Walkable" = "#92c5de",
-      "Most Walkable" = "#0571b0",
+      "Highly Walkable" = "#3C7D58",
+      "Most Walkable" = "#0CF55B",
       "No Data" = "#bdbdbd"
     ),
     title = "Walkability Category"
