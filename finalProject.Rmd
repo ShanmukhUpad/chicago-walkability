@@ -614,7 +614,6 @@ metro_walk_map <- tm_shape(final_data) +
   tm_compass(position = c("left", "top")) +
   tm_scalebar(position = c("left", "bottom"))
 metro_walk_map
-tmap_save(metro_walk_map, "poster_figures/fig_metro_walk.png", width = 10, height = 8, dpi = 200)
 ```
 
 ```{r chicago-city-walkability, fig.width=10, fig.height=8}
@@ -651,7 +650,6 @@ city_walk_map <- tm_shape(chicago_city) +
   tm_compass(position = c("left", "top")) +
   tm_scalebar(position = c("left", "bottom"))
 city_walk_map
-tmap_save(city_walk_map, "poster_figures/fig_city_walk.png", width = 10, height = 8, dpi = 200)
 ```
 
 ```{r variability-visualizations, fig.width=10, fig.height=8}
@@ -676,7 +674,6 @@ tm0 <- tm_shape(chicago_city) +
             main.title.size = 1.1,
             frame = TRUE)
 tmap_arrange(tm0, ncol = 1)
-tmap_save(tm0, "poster_figures/fig_city_jenks.png", width = 10, height = 8, dpi = 200)
 ```
 
 ```{r additional-visualizations, fig.width=12, fig.height=6}
@@ -736,7 +733,6 @@ tm5 <- tm_shape(chicago_city) +
             frame = TRUE)
 
 tmap_arrange(tm2, tm3, tm5, ncol = 3)
-tmap_save(tm3, "poster_figures/fig_econ_opportunity.png", width = 8, height = 8, dpi = 200)
 ```
 
 ```{r lisa-metro, fig.width=10, fig.height=8}
@@ -853,7 +849,6 @@ if (city_moran$p.value < 0.05) {
       frame = TRUE
     )
   print(city_lisa_map)
-  tmap_save(city_lisa_map, "poster_figures/fig_lisa_city.png", width = 10, height = 8, dpi = 200)
 } else {
   cat("Skipping city LISA: city-only Moran's I was not significant.\n")
 }
@@ -925,7 +920,6 @@ ggplot(scatter_data, aes(x = employment_entropy, y = walk_score)) +
   ) +
   theme(plot.title = element_text(size = 14, face = "bold"),
         plot.subtitle = element_text(size = 11, color = "#555"))
-ggsave("poster_figures/fig_scatter_entropy.png", width = 10, height = 6, dpi = 200)
 ```
 
 ```{r scatterplot-matrix, fig.width=8, fig.height=6}
@@ -936,12 +930,10 @@ pairs_data <- city_data %>%
          intersection_density, employment_entropy, employment_mix) %>%
   na.omit()
 
-png("poster_figures/fig_scatterplot_matrix.png", width = 1600, height = 1200, res = 200)
 pairs(pairs_data,
       main = "Scatterplot Matrix: Walkability and Related Variables (City of Chicago)",
       pch = 16,
       col = rgb(0, 0, 1, 0.3))
-dev.off()
 ```
 
 ------------------------------------------------------------------------
