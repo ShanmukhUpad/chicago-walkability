@@ -1058,14 +1058,13 @@ the environmental sustainability and quality of life in the urban form.
 # **References and .csv Export**
 
 ```{r export-to-csv}
-
-chicago_boundary <- places(state = "IL", cb = TRUE) %>%
-  filter(NAME == "Chicago") %>%
-  st_transform(4326)
+# Restrict export to the exact tract set in ChiVes so the join in the ChiVes
+# database is 1:1 with no extra tracts.
+chives_geoids <- chives_clean %>% pull(geoid) %>% unique()
 
 chicago_export <- final_data %>%
-  st_filter(chicago_boundary, .predicate = st_intersects) %>%
   st_drop_geometry() %>%
+  filter(TRACT_GEOID %in% chives_geoids) %>%
   select(
     geoid = TRACT_GEOID,
     walkability_score = walk_score,
@@ -1074,6 +1073,11 @@ chicago_export <- final_data %>%
     intersection_density = intersection_density,
     transit_distance_km = transit_distance_km,
   )
+
+cat("Tracts exported to ChiVes:", nrow(chicago_export), "\n")
+cat("ChiVes tracts total:", length(chives_geoids), "\n")
+cat("ChiVes tracts missing walkability:",
+    length(setdiff(chives_geoids, chicago_export$geoid)), "\n")
 
 write_csv(chicago_export, "chicago_walkability_for_chives.csv")
 
